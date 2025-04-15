@@ -1,0 +1,147 @@
+{% extends 'layout.html' %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-7 mb-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-search me-2"></i>Start New Scan
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="scan-form" action="{{ url_for('start_scan') }}" method="post">
+                    <div class="mb-3">
+                        <label for="scan_name" class="form-label">Scan Name (Optional)</label>
+                        <input type="text" class="form-control" id="scan_name" name="scan_name" placeholder="My Scan">
+                        <div class="form-text">If left blank, a timestamp-based name will be used.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="target" class="form-label">Target IP Address/Range <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="target" name="target" required placeholder="192.168.1.1 or 192.168.1.0/24">
+                        <div id="target-feedback" class="invalid-feedback d-none"></div>
+                        <div class="form-text">
+                            Enter a single IP, IP range (CIDR notation), or comma-separated IPs.
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-play me-2"></i>Start Scan
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header bg-info text-dark">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>About Flan Scan
+                </h5>
+            </div>
+            <div class="card-body">
+                <p>
+                    Flan Scan is a wrapper for Nmap that makes vulnerability scanning more accessible and easier to use.
+                    It runs a standard set of scans and produces reports in a variety of formats.
+                </p>
+                <h6 class="mb-3">Features:</h6>
+                <ul>
+                    <li>Scans for vulnerabilities using Nmap NSE scripts</li>
+                    <li>Generates detailed reports on discovered services and vulnerabilities</li>
+                    <li>Identifies potential security issues in your network</li>
+                    <li>Runs in a Docker container for easy deployment</li>
+                </ul>
+                <p class="card-text text-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Note:</strong> Only scan networks and hosts that you have permission to test.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header bg-secondary">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-tasks me-2"></i>Active Scans
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if active_scans %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Target</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for scan in active_scans %}
+                                <tr class="active-scan" data-scan-id="{{ scan.id }}">
+                                    <td>{{ scan.name }}</td>
+                                    <td>
+                                        <span class="scan-target">{{ scan.target }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge status-badge status-{{ scan.status }} scan-status">
+                                            {{ scan.status }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <form action="{{ url_for('cancel_scan', scan_id=scan.id) }}" method="post" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-danger cancel-scan" title="Cancel Scan">
+                                                <i class="fas fa-stop"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center p-4">
+                        <i class="fas fa-check-circle text-success fa-3x mb-3"></i>
+                        <p class="text-muted">No active scans currently running</p>
+                        <p class="small">Start a new scan using the form on the left</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-history me-2"></i>Recent Reports
+                </h5>
+            </div>
+            <div class="card-body">
+                {% set recent_reports = active_scans|selectattr('status', 'equalto', 'completed')|list %}
+                {% if recent_reports %}
+                    <div class="list-group">
+                        {% for report in recent_reports[:5] %}
+                            <a href="{{ url_for('view_report', scan_id=report.id) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">{{ report.name }}</h6>
+                                    <p class="small mb-0">{{ report.target }}</p>
+                                </div>
+                                <span class="badge bg-primary rounded-pill">
+                                    {{ report.start_time.strftime('%Y-%m-%d %H:%M') }}
+                                </span>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center p-3">
+                        <p class="text-muted">No recent reports available</p>
+                        <a href="{{ url_for('reports') }}" class="btn btn-sm btn-outline-primary">View All Reports</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
