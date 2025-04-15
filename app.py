@@ -2,51 +2,33 @@ import os
 import logging
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.orm import DeclarativeBase
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
-
-class Base(DeclarativeBase):
-    pass
-
-db = SQLAlchemy(model_class=Base)
 
 # Create the Flask app
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
-# Use SQLite database
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///flanscan.db")
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_recycle": 300,
-    "pool_pre_ping": True,
-}
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-# Initialize the database
-db.init_app(app)
-
-# Import modules after app is created to avoid circular imports
+# Import modules after app is created
 from scanner import Scanner
 from report_manager import ReportManager
-import models
+from data_manager import data_manager, Scan
 
-# Create an instance of the scanner
+# Create instances of the scanner and report manager
 scanner = Scanner()
 report_manager = ReportManager()
 
-# Initialize database tables
-with app.app_context():
-    db.create_all()
-
 @app.route('/')
 def index():
-    active_scans = models.Scan.query.filter_by(status='running').all()
-    return render_template('index.html', active_scans=active_scans)
+    active_scans = data_manager.get_active_scans()
+    completed_scans = data_manager.get_completed_scans()
+    # Take only the 5 most recent completed scans for display
+    recent_reports = completed_scans[:5] if completed_scans else []
+    
+    return render_template('index.html', active_scans=active_scans + recent_reports)
 
 @app.route('/start_scan', methods=['POST'])
 def start_scan():
@@ -59,14 +41,13 @@ def start_scan():
     
     try:
         # Create a new scan record
-        new_scan = models.Scan(
+        new_scan = Scan(
             name=scan_name,
             target=target,
             status='queued',
             start_time=datetime.now()
         )
-        db.session.add(new_scan)
-        db.session.commit()
+        scan_id = data_manager.add_scan(new_scan)
         
         # Start the scan
         scanner.start_scan(new_scan.id, target)
@@ -79,7 +60,10 @@ def start_scan():
 
 @app.route('/scan_status/<int:scan_id>')
 def scan_status(scan_id):
-    scan = models.Scan.query.get_or_404(scan_id)
+    scan = data_manager.get_scan(scan_id)
+    if not scan:
+        return jsonify({'error': 'Scan not found'}), 404
+        
     return jsonify({
         'id': scan.id,
         'status': scan.status,
@@ -89,12 +73,17 @@ def scan_status(scan_id):
 
 @app.route('/reports')
 def reports():
-    all_reports = models.Scan.query.order_by(models.Scan.start_time.desc()).all()
+    all_reports = data_manager.get_all_scans()
+    # Sort by start_time in descending order
+    all_reports.sort(key=lambda x: x.start_time if x.start_time else datetime.min, reverse=True)
     return render_template('reports.html', reports=all_reports)
 
 @app.route('/view_report/<int:scan_id>')
 def view_report(scan_id):
-    scan = models.Scan.query.get_or_404(scan_id)
+    scan = data_manager.get_scan(scan_id)
+    if not scan:
+        flash('Scan not found', 'danger')
+        return redirect(url_for('reports'))
     
     if scan.status != 'completed':
         flash('Report is not yet available', 'warning')
@@ -105,15 +94,17 @@ def view_report(scan_id):
 
 @app.route('/delete_report/<int:scan_id>', methods=['POST'])
 def delete_report(scan_id):
-    scan = models.Scan.query.get_or_404(scan_id)
+    scan = data_manager.get_scan(scan_id)
+    if not scan:
+        flash('Scan not found', 'danger')
+        return redirect(url_for('reports'))
     
     try:
         # Delete the scan report file if it exists
         report_manager.delete_report(scan_id)
         
-        # Delete the scan record from the database
-        db.session.delete(scan)
-        db.session.commit()
+        # Delete the scan record
+        data_manager.delete_scan(scan_id)
         
         flash('Report deleted successfully', 'success')
     except Exception as e:
@@ -124,7 +115,10 @@ def delete_report(scan_id):
 
 @app.route('/cancel_scan/<int:scan_id>', methods=['POST'])
 def cancel_scan(scan_id):
-    scan = models.Scan.query.get_or_404(scan_id)
+    scan = data_manager.get_scan(scan_id)
+    if not scan:
+        flash('Scan not found', 'danger')
+        return redirect(url_for('index'))
     
     if scan.status not in ['queued', 'running']:
         flash('Cannot cancel a scan that is not in progress', 'warning')
@@ -134,7 +128,7 @@ def cancel_scan(scan_id):
         scanner.cancel_scan(scan_id)
         scan.status = 'cancelled'
         scan.end_time = datetime.now()
-        db.session.commit()
+        data_manager.update_scan(scan)
         flash('Scan cancelled successfully', 'success')
     except Exception as e:
         logging.error(f"Error cancelling scan: {str(e)}")
