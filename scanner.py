@@ -5,8 +5,7 @@ import logging
 import json
 import xml.etree.ElementTree as ET
 from datetime import datetime
-from app import db
-from models import Scan
+from data_manager import data_manager, Scan
 
 class Scanner:
     def __init__(self):
@@ -24,13 +23,13 @@ class Scanner:
         logging.debug(f"Starting scan {scan_id} for target {target}")
         
         # Update scan status to running
-        scan = Scan.query.get(scan_id)
+        scan = data_manager.get_scan(scan_id)
         if not scan:
             logging.error(f"Scan {scan_id} not found")
             return
         
         scan.status = 'running'
-        db.session.commit()
+        data_manager.update_scan(scan)
         
         # Create a directory for this scan's reports
         scan_dir = os.path.join(self.reports_dir, f"scan_{scan_id}")
@@ -68,24 +67,24 @@ class Scanner:
             
             # Check if the scan completed successfully
             if process.returncode == 0:
-                # Parse the report and update the database
+                # Parse the report and update the data
                 xml_report_path = os.path.join(scan_dir, 'report.xml')
                 if os.path.exists(xml_report_path):
                     scan.status = 'completed'
                     scan.end_time = datetime.now()
                     scan.report_path = xml_report_path
-                    db.session.commit()
+                    data_manager.update_scan(scan)
                     logging.debug(f"Scan {scan_id} completed successfully")
                 else:
                     scan.status = 'failed'
                     scan.end_time = datetime.now()
-                    db.session.commit()
+                    data_manager.update_scan(scan)
                     logging.error(f"Scan {scan_id} output file not found")
             else:
                 # Scan failed
                 scan.status = 'failed'
                 scan.end_time = datetime.now()
-                db.session.commit()
+                data_manager.update_scan(scan)
                 logging.error(f"Scan {scan_id} failed: {stderr}")
                 
                 # Write error to a file for reference
@@ -98,7 +97,7 @@ class Scanner:
             # Mark the scan as failed
             scan.status = 'failed'
             scan.end_time = datetime.now()
-            db.session.commit()
+            data_manager.update_scan(scan)
     
     def start_scan(self, scan_id, target):
         """
@@ -125,7 +124,7 @@ class Scanner:
         """
         Get the current status of a scan
         """
-        scan = Scan.query.get(scan_id)
+        scan = data_manager.get_scan(scan_id)
         if scan:
             return {
                 'id': scan.id,

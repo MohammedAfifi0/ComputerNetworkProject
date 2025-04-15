@@ -3,8 +3,7 @@ import json
 import xml.etree.ElementTree as ET
 import logging
 from datetime import datetime
-from models import Scan
-from app import db
+from data_manager import data_manager, Scan
 
 class ReportManager:
     def __init__(self):
@@ -18,7 +17,7 @@ class ReportManager:
         """
         Get the parsed report data for a specific scan
         """
-        scan = Scan.query.get(scan_id)
+        scan = data_manager.get_scan(scan_id)
         if not scan or not scan.report_path or not os.path.exists(scan.report_path):
             return None
         
@@ -119,7 +118,7 @@ class ReportManager:
         """
         Delete a scan report
         """
-        scan = Scan.query.get(scan_id)
+        scan = data_manager.get_scan(scan_id)
         if not scan:
             return False
         
