@@ -51,8 +51,11 @@
                                 </td>
                                 <td>
                                     {% if report.status == 'completed' %}
-                                        <a href="{{ url_for('view_report', scan_id=report.id) }}" class="btn btn-sm btn-primary" title="View Report">
+                                        <a href="{{ url_for('view_report', scan_id=report.id) }}" class="btn btn-sm btn-primary me-1" title="View Report">
                                             <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{{ url_for('vulnerability_analytics', scan_id=report.id) }}" class="btn btn-sm btn-info" title="Vulnerability Analytics">
+                                            <i class="fas fa-chart-line"></i>
                                         </a>
                                     {% elif report.is_active() %}
                                         <form action="{{ url_for('cancel_scan', scan_id=report.id) }}" method="post" class="d-inline">

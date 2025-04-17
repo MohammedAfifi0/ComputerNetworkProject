@@ -58,6 +58,9 @@
                                     <i class="fas fa-trash me-2"></i>Delete Report
                                 </button>
                             </form>
+                            <a href="{{ url_for('vulnerability_analytics', scan_id=scan.id) }}" class="btn btn-primary me-2">
+                                <i class="fas fa-chart-line me-2"></i>Vulnerability Analytics
+                            </a>
                             <a href="{{ url_for('reports') }}" class="btn btn-secondary">
                                 <i class="fas fa-arrow-left me-2"></i>Back to Reports
                             </a>

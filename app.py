@@ -91,6 +91,20 @@ def view_report(scan_id):
     
     report_data = report_manager.get_report(scan_id)
     return render_template('view_report.html', scan=scan, report=report_data)
+    
+@app.route('/vulnerability_analytics/<int:scan_id>')
+def vulnerability_analytics(scan_id):
+    scan = data_manager.get_scan(scan_id)
+    if not scan:
+        flash('Scan not found', 'danger')
+        return redirect(url_for('reports'))
+    
+    if scan.status != 'completed':
+        flash('Analytics are not yet available', 'warning')
+        return redirect(url_for('reports'))
+    
+    analytics_data = report_manager.get_vulnerability_analytics(scan_id)
+    return render_template('vulnerability_analytics.html', scan=scan, analytics=analytics_data)
 
 @app.route('/delete_report/<int:scan_id>', methods=['POST'])
 def delete_report(scan_id):
