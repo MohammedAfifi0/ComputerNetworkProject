@@ -1,1 +1,20 @@
-[]
+[
+  {
+    "id": 1,
+    "name": "",
+    "target": "10.25.165.0/24",
+    "status": "running",
+    "start_time": "2025-04-17T10:35:26.700661",
+    "end_time": null,
+    "report_path": null
+  },
+  {
+    "id": 2,
+    "name": "",
+    "target": "192.168.1.1",
+    "status": "completed",
+    "start_time": "2025-04-17T10:35:30.104801",
+    "end_time": "2025-04-17T10:36:12.418232",
+    "report_path": "C:\\Users\\96550\\Desktop\\networkProj\\AllergyBuddy\\reports\\scan_2\\report.xml"
+  }
+]
